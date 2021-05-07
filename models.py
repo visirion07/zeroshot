@@ -16,6 +16,27 @@ class MLP_D(nn.Module):
         self.ninput = ninput
         self.noutput = noutput
 
+        with open('class_emb.json', 'r') as f:
+            embs = json.load(f)
+
+        weights = []
+        ## joy -> 0, anger -> 1, fear -> 2, surprise -> 3, sadness -> 4, disgust -> 5
+        weights.append(embs['joy'])
+        weights.append(embs['anger'])
+        weights.append(embs['fear'])
+        weights.append(embs['surprise'])
+        weights.append(embs['sadness'])
+        weights.append(embs['disgust'])
+
+        weights = torch.FloatTensor(weights)
+        embedding = nn.Embedding.from_pretrained(weights)
+
+        emb_out = ninput/2
+        sent_out = ninput - emb_out
+
+        layer_emb = Linear(768, emb_out)
+        layer_sent = Linear(ninput, sent_out)
+
         layer_sizes = [ninput] + [int(x) for x in layers.split('-')]
         self.layers = []
 
@@ -39,7 +60,10 @@ class MLP_D(nn.Module):
 
         self.init_weights()
 
-    def forward(self, x):
+    def forward(self, x, y):
+        y = layer_emb(embedding(y))
+        x = layer_sent(x)
+        x = torch.cat((x,y), 1)
         for i, layer in enumerate(self.layers):
             x = layer(x)
         x = torch.mean(x)
@@ -63,6 +87,27 @@ class MLP_G(nn.Module):
         self.noutput = noutput
         self.gpu = gpu
 
+        with open('class_emb.json', 'r') as f:
+            embs = json.load(f)
+
+        weights = []
+        ## joy -> 0, anger -> 1, fear -> 2, surprise -> 3, sadness -> 4, disgust -> 5
+        weights.append(embs['joy'])
+        weights.append(embs['anger'])
+        weights.append(embs['fear'])
+        weights.append(embs['surprise'])
+        weights.append(embs['sadness'])
+        weights.append(embs['disgust'])
+
+        weights = torch.FloatTensor(weights)
+        embedding = nn.Embedding.from_pretrained(weights)
+
+        emb_out = ninput/2
+        sent_out = ninput - emb_out
+
+        layer_emb = Linear(768, emb_out)
+        layer_sent = Linear(ninput, sent_out)
+
         layer_sizes = [ninput] + [int(x) for x in layers.split('-')]
         self.layers = []
 
@@ -84,12 +129,15 @@ class MLP_G(nn.Module):
 
         self.init_weights()
 
-    def forward(self, x):
+    def forward(self, x, y):
         if x.__class__.__name__ =="ndarray":
             x = Variable(torch.FloatTensor(x)).cuda()
             #x = x.cpu()
         if x.__class__.__name__ =="FloatTensor":
             x = Variable(x).cuda()
+        y = layer_emb(embedding(y))
+        x = layer_sent(x)
+        x = torch.cat((x,y), 1)
         for i, layer in enumerate(self.layers):
             x = layer(x)
         return x
@@ -158,6 +206,27 @@ class MLP_I_AE(nn.Module):
         self.gpu = gpu
         noutput_mu = noutput
         noutput_var = noutput
+
+        with open('class_emb.json', 'r') as f:
+            embs = json.load(f)
+
+        weights = []
+        ## joy -> 0, anger -> 1, fear -> 2, surprise -> 3, sadness -> 4, disgust -> 5
+        weights.append(embs['joy'])
+        weights.append(embs['anger'])
+        weights.append(embs['fear'])
+        weights.append(embs['surprise'])
+        weights.append(embs['sadness'])
+        weights.append(embs['disgust'])
+
+        weights = torch.FloatTensor(weights)
+        embedding = nn.Embedding.from_pretrained(weights)
+
+        emb_out = ninput/2
+        sent_out = ninput - emb_out
+
+        layer_emb = Linear(768, emb_out)
+        layer_sent = Linear(ninput, sent_out)
         
         layer_sizes = [ninput] + [int(x) for x in layers.split('-')]
         self.layers = []
@@ -183,7 +252,10 @@ class MLP_I_AE(nn.Module):
         
         self.init_weights()
 
-    def forward(self, x):
+    def forward(self, x, y):
+        y = layer_emb(embedding(y))
+        x = layer_sent(x)
+        x = torch.cat((x,y), 1)
         for i, layer in enumerate(self.layers):
             x = layer(x)
         mu = self.linear_mu(x)
