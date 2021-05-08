@@ -943,94 +943,95 @@ if __name__ == '__main__':
                     # exponentially decaying noise on autoencoder
                     autoencoder.noise_radius = autoencoder.noise_radius * args.noise_anneal
 
-                    if niter_global % 30000 == 0:
-                        evaluate_generator(fixed_noise,
-                                           'epoch{}_step{}'.format(epoch, niter_global),
-                                           args, autoencoder, gan_gen, corpus)
+                    # if niter_global % 30000 == 0:
+                    #     evaluate_generator(fixed_noise,
+                    #                        'epoch{}_step{}'.format(epoch, niter_global),
+                    #                        args, autoencoder, gan_gen, corpus)
 
-                        # evaluate with lm
-                        if not args.no_earlystopping and epoch > args.min_epochs:
-                            ppl = train_lm(os.path.join(args.data_path, "test.txt"),
-                                           "./output/{}/epoch{}_step{}_lm_generations".
-                                           format(args.outf, epoch, niter_global),
-                                           args, autoencoder, gan_gen, corpus)
-                            all_ppl.append(ppl)
-                            if best_ppl is None or ppl < best_ppl:
-                                impatience = 0
-                                best_ppl = ppl
-                                print("New best ppl {}\n".format(best_ppl))
-                                with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
-                                    f.write("New best ppl {}\n".format(best_ppl))
-                                save_model(args, autoencoder, gan_gen, gan_disc, inverter)
-                            else:
-                                impatience += 1
-                                # end training
-                                if impatience > args.patience:
-                                    print("Ending training")
-                                    with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
-                                        f.write("\nEnding Training\n")
-                                    sys.exit()
+                    #     # evaluate with lm
+                    #     if not args.no_earlystopping and epoch > args.min_epochs:
+                    #         ppl = train_lm(os.path.join(args.data_path, "test.txt"),
+                    #                        "./output/{}/epoch{}_step{}_lm_generations".
+                    #                        format(args.outf, epoch, niter_global),
+                    #                        args, autoencoder, gan_gen, corpus)
+                    #         all_ppl.append(ppl)
+                    #         if best_ppl is None or ppl < best_ppl:
+                    #             impatience = 0
+                    #             best_ppl = ppl
+                    #             print("New best ppl {}\n".format(best_ppl))
+                    #             with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
+                    #                 f.write("New best ppl {}\n".format(best_ppl))
+                    #             save_model(args, autoencoder, gan_gen, gan_disc, inverter)
+                    #         else:
+                    #             impatience += 1
+                    #             # end training
+                    #             if impatience > args.patience:
+                    #                 print("Ending training")
+                    #                 with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
+                    #                     f.write("\nEnding Training\n")
+                    #                 sys.exit()
 
             else:
                 if niter_global % 100 == 0:
                     with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
                         f.write('[%d/%d][%d/%d] Loss_I: %.8f \n'
                                 % (epoch, args.epochs, niter, len(train_data), errI.data[0]))
-
+            save_model(args, autoencoder, gan_gen, gan_disc, inverter, epoch = epoch)
+        
         # end of epoch ----------------------------
         # evaluation
 
-        if not args.update_base:
-            perturb(test_data, epoch, corpus_test, hybrid=args.hybrid)
-            test_data = iter(testloader)
+        # if not args.update_base:
+        #     perturb(test_data, epoch, corpus_test, hybrid=args.hybrid)
+        #     test_data = iter(testloader)
 
-        save_model(args, autoencoder, gan_gen, gan_disc, inverter, epoch)
+        # save_model(args, autoencoder, gan_gen, gan_disc, inverter, epoch)
 
-        if (not args.load_pretrained) and (not args.reload_exp):
-            test_loss, accuracy = evaluate_autoencoder(valid_data, epoch,
-                                                       args, autoencoder, criterion_ce, corpus)
-            print('-' * 89)
-            print('| end of epoch {:3d} | time: {:5.2f}s | test loss {:5.2f} | '
-                  'test ppl {:5.2f} | acc {:3.3f}'.
-                  format(epoch, (time.time() - epoch_start_time),
-                         test_loss, math.exp(test_loss), accuracy))
-            print('-' * 89)
+        # if (not args.load_pretrained) and (not args.reload_exp):
+        #     test_loss, accuracy = evaluate_autoencoder(valid_data, epoch,
+        #                                                args, autoencoder, criterion_ce, corpus)
+        #     print('-' * 89)
+        #     print('| end of epoch {:3d} | time: {:5.2f}s | test loss {:5.2f} | '
+        #           'test ppl {:5.2f} | acc {:3.3f}'.
+        #           format(epoch, (time.time() - epoch_start_time),
+        #                  test_loss, math.exp(test_loss), accuracy))
+        #     print('-' * 89)
 
-            with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
-                f.write('-' * 89)
-                f.write('\n| end of epoch {:3d} | time: {:5.2f}s | test loss {:5.2f} |'
-                        ' test ppl {:5.2f} | acc {:3.3f}\n'.
-                        format(epoch, (time.time() - epoch_start_time),
-                               test_loss, math.exp(test_loss), accuracy))
-                f.write('-' * 89)
-                f.write('\n')
+        #     with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
+        #         f.write('-' * 89)
+        #         f.write('\n| end of epoch {:3d} | time: {:5.2f}s | test loss {:5.2f} |'
+        #                 ' test ppl {:5.2f} | acc {:3.3f}\n'.
+        #                 format(epoch, (time.time() - epoch_start_time),
+        #                        test_loss, math.exp(test_loss), accuracy))
+        #         f.write('-' * 89)
+        #         f.write('\n')
 
-            evaluate_generator(fixed_noise, "end_of_epoch_{}".format(epoch),
-                               args, autoencoder, gan_gen, corpus)
-            if not args.no_earlystopping and epoch >= args.min_epochs:
-                ppl = train_lm(os.path.join(args.data_path, "test.txt"),
-                               "./output/{}/end_of_epoch{}_lm_generations".
-                               format(args.outf, epoch),
-                               args, autoencoder, gan_gen, corpus)
+        #     evaluate_generator(fixed_noise, "end_of_epoch_{}".format(epoch),
+        #                        args, autoencoder, gan_gen, corpus)
+        #     if not args.no_earlystopping and epoch >= args.min_epochs:
+        #         ppl = train_lm(os.path.join(args.data_path, "test.txt"),
+        #                        "./output/{}/end_of_epoch{}_lm_generations".
+        #                        format(args.outf, epoch),
+        #                        args, autoencoder, gan_gen, corpus)
 
-                all_ppl.append(ppl)
+        #         all_ppl.append(ppl)
 
-                if best_ppl is None or ppl < best_ppl:
-                    impatience = 0
-                    best_ppl = ppl
-                    print("New best ppl {}\n".format(best_ppl))
-                    with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
-                        f.write("New best ppl {}\n".format(best_ppl))
-                    save_model(args, autoencoder, gan_gen, gan_disc, inverter)
-                else:
-                    impatience += 1
-                    # end training
-                    if impatience > args.patience:
-                        print("Ending training")
-                        with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
-                            f.write("\nEnding Training\n")
-                        sys.exit()
-
+        #         if best_ppl is None or ppl < best_ppl:
+        #             impatience = 0
+        #             best_ppl = ppl
+        #             print("New best ppl {}\n".format(best_ppl))
+        #             with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
+        #                 f.write("New best ppl {}\n".format(best_ppl))
+        #             save_model(args, autoencoder, gan_gen, gan_disc, inverter)
+        #         else:
+        #             impatience += 1
+        #             # end training
+        #             if impatience > args.patience:
+        #                 print("Ending training")
+        #                 with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
+        #                     f.write("\nEnding Training\n")
+        #                 sys.exit()
+            
         # shuffle between epochs
         train_data = batchify(corpus.train, args.batch_size, args.maxlen,
                               packed_rep=args.packed_rep, shuffle=True)
