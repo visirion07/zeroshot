@@ -158,7 +158,7 @@ def train_ae(batch, total_loss_ae, start_time, i,
     source, target, labels, lengths = batch
     source = to_gpu(args.cuda, Variable(source))
     target = to_gpu(args.cuda, Variable(target))
-    labels = to_gpu(args.cuda, Variable(label))
+    labels = to_gpu(args.cuda, Variable(labels))
     # Create sentence length mask over padding
     mask = target.gt(0)
     masked_target = target.masked_select(mask)
@@ -241,7 +241,7 @@ def train_gan_d(batch,
 
     # loss / backprop
     fake_hidden = gan_gen(noise, labels)
-    errD_fake = gan_disc(fake_hidden.detach(), labels)
+    errD_fake = gan_disc(fake_hidden.detach())
     errD_fake.backward(mone)
 
     # `clip_grad_norm` to prevent exploding gradient problem in RNNs / LSTMs
@@ -254,7 +254,7 @@ def train_gan_d(batch,
     return errD, errD_real, errD_fake
 
 
-def train_gan_g(args, gan_gen, gan_disc, optimizer_gan_g):
+def train_gan_g(batch, args, gan_gen, gan_disc, optimizer_gan_g):
     for p in gan_disc.parameters():
         p.data.clamp_(-args.gan_clamp, args.gan_clamp)
 
@@ -277,7 +277,7 @@ def train_gan_g(args, gan_gen, gan_disc, optimizer_gan_g):
     noise.data.normal_(0, 1)
 
     fake_hidden = gan_gen(noise, labels)
-    errG = gan_disc(fake_hidden, labels)
+    errG = gan_disc(fake_hidden)
 
     # loss / backprop
     errG.backward(one)
@@ -294,13 +294,14 @@ def train_inv(data_batch, args, autoencoder, gan_gen, inverter, optimizer_inv,
     noise = to_gpu(args.cuda, Variable(torch.ones(args.batch_size, args.z_size)))
     noise.data.normal_(0, 1)
 
+    source, target, labels, lengths = data_batch
+    source = to_gpu(args.cuda, Variable(source))
+    target = to_gpu(args.cuda, Variable(target))
+    labels = to_gpu(args.cuda, Variable(labels))
+
     if args.use_inv_ae:
         autoencoder.train()
         autoencoder.zero_grad()
-        source, target, labels, lengths = data_batch
-        source = to_gpu(args.cuda, Variable(source))
-        target = to_gpu(args.cuda, Variable(target))
-        labels = to_gpu(args.cuda, Variable(labels))
         # Create sentence length mask over padding
         mask = target.gt(0)
         masked_target = target.masked_select(mask)
@@ -716,7 +717,7 @@ if __name__ == '__main__':
                         maxlen=args.maxlen,
                         vocab_size=args.vocab_size,
                         lowercase=args.lowercase,
-                        load_vocab=cur_dir + '/vocab.json')
+                        load_vocab=None)
     else:
         corpus = Corpus(args.data_path,
                         maxlen=args.maxlen,
@@ -728,24 +729,24 @@ if __name__ == '__main__':
 
     train_data = batchify(corpus.train, args.batch_size, args.maxlen,
                           packed_rep=args.packed_rep, shuffle=True)
-    valid_data = batchify(corpus.test, args.batch_size, args.maxlen,
-                          packed_rep=args.packed_rep, shuffle=False)
+    # valid_data = batchify(corpus.test, args.batch_size, args.maxlen,
+    #                       packed_rep=args.packed_rep, shuffle=False)
 
-    corpus_test = SNLIDataset(train=False, vocab_size=args.vocab_size+4,
-                              reset_vocab=corpus.dictionary.word2idx)
-    testloader = torch.utils.data.DataLoader(corpus_test, batch_size=10,
-                                             collate_fn=collate_snli, shuffle=False)
-    test_data = iter(testloader)        # different format from train_data and valid_data
+    # corpus_test = SNLIDataset(train=False, vocab_size=args.vocab_size+4,
+    #                           reset_vocab=corpus.dictionary.word2idx)
+    # testloader = torch.utils.data.DataLoader(corpus_test, batch_size=10,
+    #                                          collate_fn=collate_snli, shuffle=False)
+    # test_data = iter(testloader)        # different format from train_data and valid_data
 
-    classifier1 = Baseline_Embeddings(100, vocab_size=args.vocab_size+4)
-    classifier1.load_state_dict(torch.load(args.classifier_path + "/baseline/model_emb.pt"))
-    vocab_classifier1 = pkl.load(open(args.classifier_path + "/vocab.pkl", 'r'))
+    # classifier1 = Baseline_Embeddings(100, vocab_size=args.vocab_size+4)
+    # classifier1.load_state_dict(torch.load(args.classifier_path + "/baseline/model_emb.pt"))
+    # vocab_classifier1 = pkl.load(open(args.classifier_path + "/vocab.pkl", 'r'))
 
-    classifier2 = Baseline_LSTM(100, 300, maxlen=10, gpu=args.cuda)
-    classifier2.load_state_dict(torch.load(args.classifier_path + "/baseline/model_lstm.pt"))
-    vocab_classifier2 = pkl.load(open(args.classifier_path + "/vocab.pkl", 'r'))
+    # classifier2 = Baseline_LSTM(100, 300, maxlen=10, gpu=args.cuda)
+    # classifier2.load_state_dict(torch.load(args.classifier_path + "/baseline/model_lstm.pt"))
+    # vocab_classifier2 = pkl.load(open(args.classifier_path + "/vocab.pkl", 'r'))
 
-    print("Loaded data and target classifiers!")
+    # print("Loaded data and target classifiers!")
 
     ###############################################################################
     # Build the models
@@ -826,9 +827,20 @@ if __name__ == '__main__':
 
     optimizer_ae = optim.SGD(autoencoder.parameters(),
                              lr=args.lr_ae)
-    optimizer_inv = optim.Adam(inverter.parameters(),
+
+    params_to_update = []
+    for name, param in inverter.named_parameters():
+        if param.requires_grad == True:
+            params_to_update.append(param)
+    optimizer_inv = optim.Adam(params_to_update,
                                lr=args.lr_inv, betas=(args.beta1, 0.999))
-    optimizer_gan_g = optim.Adam(gan_gen.parameters(),
+
+    params_to_update = []
+    for name, param in gan_gen.named_parameters():
+        if param.requires_grad == True:
+            params_to_update.append(param)
+
+    optimizer_gan_g = optim.Adam(params_to_update,
                                  lr=args.lr_gan_g, betas=(args.beta1, 0.999))
     optimizer_gan_d = optim.Adam(gan_disc.parameters(),
                                  lr=args.lr_gan_d, betas=(args.beta1, 0.999))
@@ -843,16 +855,16 @@ if __name__ == '__main__':
         gan_gen = gan_gen.cuda()
         gan_disc = gan_disc.cuda()
         criterion_ce = criterion_ce.cuda()
-        classifier1 = classifier1.cuda()
-        classifier2 = classifier2.cuda()
+        # classifier1 = classifier1.cuda()
+        # classifier2 = classifier2.cuda()
     else:
         autoencoder.gpu = False
         autoencoder = autoencoder.cpu()
         inverter = inverter.cpu()
         gan_gen = gan_gen.cpu()
         gan_disc = gan_disc.cpu()
-        classifier1.cpu()
-        classifier2.cpu()
+        # classifier1.cpu()
+        # classifier2.cpu()
 
     print("Training...")
     with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
@@ -976,7 +988,7 @@ if __name__ == '__main__':
                     with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
                         f.write('[%d/%d][%d/%d] Loss_I: %.8f \n'
                                 % (epoch, args.epochs, niter, len(train_data), errI.data[0]))
-            save_model(args, autoencoder, gan_gen, gan_disc, inverter, epoch = epoch)
+        save_model(args, autoencoder, gan_gen, gan_disc, inverter, epoch = epoch)
         
         # end of epoch ----------------------------
         # evaluation

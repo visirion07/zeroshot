@@ -102,13 +102,18 @@ class Corpus(object):
             for line in f:
                 if self.lowercase:
                     # -1 to get rid of \n character
-                    words = line[:-1].lower().split(" ")
+                    splits = line[:-1].strip().split(" ") 
+                    words = splits[:-1]
+                    label = splits[-1]
                 else:
-                    words = line[:-1].split(" ")
+                    splits = line[:-1].strip().split(" ") 
+                    words = splits[:-1]
+                    label = splits[-1]
                 for word in words:
-                    word = word.decode('Windows-1252').encode('utf-8')
+                    word = word
                     self.dictionary.add_word(word)
 
+        # print(len(dictionary.word2idx.keys()))
         # prune the vocabulary
         self.dictionary.prune_vocab(k=self.vocab_size, cnt=False)
 
@@ -124,11 +129,11 @@ class Corpus(object):
                 if self.lowercase:
                     splits = line[:-1].lower().strip().split(" ") 
                     words = splits[:-1]
-                    label = splits[-1]
+                    label = int(splits[-1])
                 else:
                     splits = line[:-1].strip().split(" ") 
                     words = splits[:-1]
-                    label = splits[-1]
+                    label = int(splits[-1])
                     # words = line[:-1].strip().split(" ")
                 if len(words) > self.maxlen-1:
                     dropped += 1
@@ -136,7 +141,7 @@ class Corpus(object):
                 lens = len(words) + 1
                 words = ['<sos>'] + words
                 words += ['<eos>']
-                labels.append(llabel)
+                # labels.append(label)
                 # vectorize
                 vocab = self.dictionary.word2idx
                 unk_idx = vocab['<oov>']
@@ -158,18 +163,19 @@ def batchify(data, bsz, max_len, packed_rep=False, shuffle=False, gpu=False):
     for i in range(nbatch):
         # Pad batches to maximum sequence length in batch
         #batch = data[i*bsz:(i+1)*bsz]
-        batch, lengths = zip(*(data[i*bsz:(i+1)*bsz]))
+        batch, label, lengths = zip(*(data[i*bsz:(i+1)*bsz]))
         # subtract 1 from lengths b/c includes BOTH starts & end symbols
         #lengths = [len(x)-1 for x in batch]
         # sort items by length (decreasing)
-        batch, lengths = length_sort(batch, lengths)
-
+        batch, labels, lengths = length_sort(batch, label, lengths)
+        if(i == 0):
+            print(batch, labels)
         # source has no end symbol
-        source = [x[0][:-1] for x in batch]
+        source = [x[:-1] for x in batch]
         # target has no start symbol
-        target = [x[0][1:] for x in batch]
+        target = [x[1:] for x in batch]
         
-        labels = [x[1] for x in batch] 
+        # labels = [x[1] for x in batch] 
         # find length to pad to
         if packed_rep:
             maxlen = max(lengths)
@@ -204,12 +210,12 @@ def batchify(data, bsz, max_len, packed_rep=False, shuffle=False, gpu=False):
     return batches
 
 
-def length_sort(items, lengths, descending=True):
+def length_sort(items, labels, lengths, descending=True):
     """In order to use pytorch variable length sequence package"""
-    items = list(zip(items, lengths))
-    items.sort(key=lambda x: x[1], reverse=True)
-    items, lengths = zip(*items)
-    return list(items), list(lengths)
+    items = list(zip(items, labels, lengths))
+    items.sort(key=lambda x: x[2], reverse=True)
+    items, labels, lengths = zip(*items)
+    return list(items), list(labels), list(lengths)
 
 
 def train_ngram_lm(kenlm_path, data_path, output_path, N):
