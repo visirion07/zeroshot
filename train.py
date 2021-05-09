@@ -32,9 +32,9 @@ def parse_args():
                         help='output directory name')
 
     # Data Processing Arguments
-    parser.add_argument('--vocab_size', type=int, default=11000,
+    parser.add_argument('--vocab_size', type=int, default=20000,
                         help='cut vocabulary down to this size (most frequently seen in training)')
-    parser.add_argument('--maxlen', type=int, default=10,
+    parser.add_argument('--maxlen', type=int, default=30,
                         help='maximum sentence length')
     parser.add_argument('--lowercase', type=bool, default=True,
                         help='lowercase all text')
@@ -404,17 +404,19 @@ def grad_hook(grad):
   return normed_grad
 
 
-def evaluate_generator(noise, epoch,
+def evaluate_generator(noise, labels, epoch,
                        args, autoencoder, gan_gen, corpus):
     gan_gen.eval()
     autoencoder.eval()
 
     # generate from fixed random noise
-    fake_hidden = gan_gen(noise)
+    fake_hidden = gan_gen(noise, labels)
     max_indices = autoencoder.generate(fake_hidden, args.maxlen, sample=args.sample)
 
     with open("./output/{}/{}_generated.txt".format(args.outf, epoch), "w") as f:
         max_indices = max_indices.data.cpu().numpy()
+        ll = labels.data.cpu().numpy()
+        ifx = 0
         for idx in max_indices:
             # generated sentence
             words = [corpus.dictionary.idx2word[x] for x in idx]
@@ -427,7 +429,10 @@ def evaluate_generator(noise, epoch,
                     break
             chars = " ".join(truncated_sent)
             f.write(chars)
+            f.write("\t")
+            f.write(labels[ifx])
             f.write("\n")
+            ifx += 1
 
 
 def evaluate_inverter(data_source, epoch,
@@ -885,7 +890,7 @@ if __name__ == '__main__':
     impatience = 0
     all_ppl = []
     best_ppl = None
-
+    random_labels = to_gpu(args.cuda, Variable(torch.LongTensor(torch.randint(0, 6, (args.batch_size,)))))
     for epoch in range(start_epoch, args.epochs+1):
         # update gan training schedule
         if epoch in gan_schedule:
@@ -989,6 +994,7 @@ if __name__ == '__main__':
                         f.write('[%d/%d][%d/%d] Loss_I: %.8f \n'
                                 % (epoch, args.epochs, niter, len(train_data), errI.data[0]))
         save_model(args, autoencoder, gan_gen, gan_disc, inverter, epoch = epoch)
+        evaluate_generator(fixed_noise, random_labels, 'epoch{}_step{}'.format(epoch, niter_global), args, autoencoder, gan_gen, corpus)
         
         # end of epoch ----------------------------
         # evaluation
@@ -1045,5 +1051,7 @@ if __name__ == '__main__':
         #                 sys.exit()
             
         # shuffle between epochs
+        epoch_time = time.time() - epoch_start_time
+        print("\n\n", epoch_time, "\n\n")
         train_data = batchify(corpus.train, args.batch_size, args.maxlen,
                               packed_rep=args.packed_rep, shuffle=True)

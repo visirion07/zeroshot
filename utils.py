@@ -7,6 +7,7 @@ import torch.utils.data as data
 import pickle as pkl
 from torch.autograd import Variable
 from copy import deepcopy
+import re
 
 
 def load_kenlm():
@@ -69,7 +70,7 @@ class Dictionary(object):
 
 
 class Corpus(object):
-    def __init__(self, path, maxlen, vocab_size=11000, lowercase=False, load_vocab=None):
+    def __init__(self, path, maxlen, vocab_size=20000, lowercase=False, load_vocab=None):
         self.dictionary = Dictionary()
         self.maxlen = maxlen
         self.lowercase = lowercase
@@ -126,6 +127,10 @@ class Corpus(object):
             lines = []
             for line in f:
                 linecount += 1
+                line = re.sub('[\s!"#$%&\()+,-./:;<=>?@\\^_`{|}~]', " ", line)
+                line = re.sub(" +", " ", line)
+                if(linecount < 5):
+                    print(line)
                 if self.lowercase:
                     splits = line[:-1].lower().strip().split(" ") 
                     words = splits[:-1]
