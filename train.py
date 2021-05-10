@@ -890,7 +890,7 @@ if __name__ == '__main__':
     impatience = 0
     all_ppl = []
     best_ppl = None
-    random_labels = to_gpu(args.cuda, Variable(torch.LongTensor(torch.randint(0, 6, (args.batch_size,)))))
+    random_labels = to_gpu(args.cuda, Variable(torch.LongTensor([i%6 for i in range(args.batch_size)])))
     for epoch in range(start_epoch, args.epochs+1):
         # update gan training schedule
         if epoch in gan_schedule:
