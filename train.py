@@ -430,7 +430,7 @@ def evaluate_generator(noise, labels, epoch,
             chars = " ".join(truncated_sent)
             f.write(chars)
             f.write("\t")
-            f.write(labels[ifx])
+            f.write(str(labels[ifx]))
             f.write("\n")
             ifx += 1
 
@@ -731,7 +731,11 @@ if __name__ == '__main__':
 
     if not args.convolution_enc:
         args.packed_rep = True
-
+    if not args.convolution_enc:
+        args.packed_rep = True
+    print("dictionary  words", len(corpus.dictionary.idx2word.keys()))
+    for idx in range(100):
+        print(idx, corpus.dictionary.idx2word[idx])
     train_data = batchify(corpus.train, args.batch_size, args.maxlen,
                           packed_rep=args.packed_rep, shuffle=True)
     # valid_data = batchify(corpus.test, args.batch_size, args.maxlen,

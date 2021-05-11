@@ -42,7 +42,7 @@ class Dictionary(object):
             self.wordcounts[word] += 1
 
     # prune vocab based on count k cutoff or most frequently seen k words
-    def prune_vocab(self, k=5, cnt=False):
+    def prune_vocab(self, k=2, cnt=True):
         # get all words and their respective counts
         vocab_list = [(word, count) for word, count in self.wordcounts.items()]
         if cnt:
@@ -55,7 +55,7 @@ class Dictionary(object):
             k = min(k, len(vocab_list))
             self.pruned_vocab = [pair[0] for pair in vocab_list[:k]]
         # sort to make vocabulary determistic
-        self.pruned_vocab.sort()
+        # self.pruned_vocab.sort()
 
         # add all chosen words to new vocabulary/dict
         for word in self.pruned_vocab:
@@ -70,7 +70,7 @@ class Dictionary(object):
 
 
 class Corpus(object):
-    def __init__(self, path, maxlen, vocab_size=20000, lowercase=False, load_vocab=None):
+    def __init__(self, path, maxlen, vocab_size=20000, lowercase=True, load_vocab=None):
         self.dictionary = Dictionary()
         self.maxlen = maxlen
         self.lowercase = lowercase
@@ -103,8 +103,12 @@ class Corpus(object):
             for line in f:
                 if self.lowercase:
                     # -1 to get rid of \n character
-                    splits = line[:-1].strip().split(" ") 
+                    splits = line[:-1].lower().strip().split(" ") 
                     words = splits[:-1]
+                    sentence = " ".join(words)
+                    s = re.sub(r"[^a-zA-Z]+", r" ", sentence)
+                    s = hin_mod = re.sub("\s+"," ",s)
+                    words = s.split(' ')
                     label = splits[-1]
                 else:
                     splits = line[:-1].strip().split(" ") 
@@ -116,7 +120,7 @@ class Corpus(object):
 
         # print(len(dictionary.word2idx.keys()))
         # prune the vocabulary
-        self.dictionary.prune_vocab(k=self.vocab_size, cnt=False)
+        self.dictionary.prune_vocab(k=2, cnt=True)
 
     def tokenize(self, path):
         """Tokenizes a text file."""
