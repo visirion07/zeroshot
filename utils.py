@@ -120,7 +120,7 @@ class Corpus(object):
 
         # print(len(dictionary.word2idx.keys()))
         # prune the vocabulary
-        self.dictionary.prune_vocab(k=2, cnt=True)
+        self.dictionary.prune_vocab(k=30000, cnt=False)
 
     def tokenize(self, path):
         """Tokenizes a text file."""
