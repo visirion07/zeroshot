@@ -811,8 +811,9 @@ if __name__ == '__main__':
 
     start_epoch = 1
     if args.reload_exp:
-        file_numbers = [int(f.split("_")[0]) for f in os.listdir(cur_dir) if "_perturbation" in f]
+        file_numbers = [int(f.split("_")[0][-1]) for f in os.listdir(cur_dir) if "_generated" in f]
         file_numbers.sort()
+        print(file_numbers)
         start_epoch = file_numbers[-1] + 1
 
     if os.path.exists('./output/{}/args.json'.format(args.outf)):

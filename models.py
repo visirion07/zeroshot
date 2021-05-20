@@ -84,7 +84,7 @@ class MLP_G(nn.Module):
         self.embedding.weight = torch.nn.Parameter(weights)
         self.embedding.weight.requires_grad = False
 
-        emb_out = ninput/2
+        emb_out = ninput/3
         sent_out = ninput - emb_out
 
         self.layer_emb = nn.Linear(768, emb_out)
